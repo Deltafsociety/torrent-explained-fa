@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>شبیه‌ساز پیشرفته شبکه بیت‌تورنت</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #0f172a;
+            color: #f1f5f9;
+            margin: 0;
+            overflow: hidden; /* جلوگیری از اسکرول کل صفحه */
+        }
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            border-radius: 1rem;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* Custom Scrollbar for sidebar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        .btn-glow:hover {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col md:flex-row p-3 gap-3">
+
+    <!-- سایدبار تنظیمات و اطلاعات -->
+    <aside class="w-full md:w-80 lg:w-96 bg-slate-800/80 backdrop-blur-md rounded-2xl p-5 flex flex-col gap-5 border border-slate-700 shadow-2xl z-10 flex-shrink-0 overflow-y-auto">
+        <div class="border-b border-slate-700 pb-4">
+            <h1 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-l from-blue-400 to-emerald-400 mb-2">
+                شبیه‌ساز پیشرفته تورنت
+            </h1>
+            <p class="text-xs text-slate-400 leading-relaxed text-justify">
+                در این شبیه‌ساز کامل، کاربران ابتدا به سرور ترکر متصل می‌شوند تا آدرس بقیه افراد را بگیرند. سپس ترکر را رها کرده و به صورت P2P فایل‌ها را تبادل می‌کنند.
+            </p>
+        </div>
+
+        <!-- وضعیت ترکر -->
+        <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div id="trackerStatusDot" class="w-4 h-4 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse"></div>
+                <div>
+                    <h3 class="font-bold text-sm">وضعیت سرور ترکر</h3>
+                    <span id="trackerStatusText" class="text-xs text-emerald-400">آنلاین و در حال کار</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- دکمه‌های کنترل -->
+        <div class="flex flex-col gap-3">
+            <button id="addLeecherBtn" class="btn-glow bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl transition-all font-bold text-sm flex items-center justify-center gap-2 border border-blue-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                اضافه کردن لیچر (دانلودکننده)
+            </button>
+            <button id="addSeederBtn" class="btn-glow bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl transition-all font-bold text-sm flex items-center justify-center gap-2 border border-emerald-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                اضافه کردن سیدر (دارای فایل کامل)
+            </button>
+            <button id="toggleTrackerBtn" class="bg-amber-600 hover:bg-amber-500 text-white py-3 rounded-xl transition-all font-bold text-sm flex items-center justify-center gap-2 border border-amber-500 mt-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                روشن / خاموش کردن ترکر
+            </button>
+            <button id="removePeerBtn" class="bg-rose-900/80 hover:bg-rose-800 text-rose-200 py-3 rounded-xl transition-all font-bold text-sm flex items-center justify-center gap-2 border border-rose-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6"></path></svg>
+                خروج تصادفی یک کاربر
+            </button>
+        </div>
+
+        <!-- راهنما -->
+        <div class="mt-auto bg-slate-900/50 rounded-xl p-4 border border-slate-700 text-xs text-slate-300 space-y-2">
+            <h4 class="font-bold text-slate-100 border-b border-slate-700 pb-1 mb-2">راهنمای علائم:</h4>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-emerald-500 rounded-full"></div> سیدر (سبز): فایل ۱۰۰٪</div>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-blue-500 rounded-full"></div> لیچر (آبی): در حال دانلود</div>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-amber-500 rounded-full animate-pulse"></div> در حال اتصال به ترکر</div>
+            <div class="flex items-center gap-2 text-rose-400 font-bold"><div class="w-3 h-3 border-2 border-rose-500 rounded-full text-center flex justify-center items-center">!</div> ترکر آفلاین است (لیچر گیر کرده)</div>
+        </div>
+    </aside>
+
+    <!-- محیط شبیه‌ساز -->
+    <main id="canvas-container" class="flex-1 flex flex-col relative">
+        <div class="absolute top-4 left-4 flex gap-3 z-10">
+            <div class="bg-slate-900/80 backdrop-blur border border-slate-700 rounded-lg px-4 py-2 text-sm">
+                <span class="text-slate-400">سیدرها:</span> <span id="statSeeders" class="font-bold text-emerald-400 ml-1">0</span>
+            </div>
+            <div class="bg-slate-900/80 backdrop-blur border border-slate-700 rounded-lg px-4 py-2 text-sm">
+                <span class="text-slate-400">لیچرها:</span> <span id="statLeechers" class="font-bold text-blue-400 ml-1">0</span>
+            </div>
+        </div>
+        <canvas id="simCanvas"></canvas>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let cw, ch;
+
+        // تنظیمات پایه فایل و شبیه‌سازی
+        const TOTAL_PIECES = 8;
+        const PIECE_COLORS = [
+            '#ef4444', '#f97316', '#eab308', '#22c55e', 
+            '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'
+        ];
+        
+        let peers = [];
+        let packets = [];
+        let peerIdCounter = 1;
+
+        // وضعیت سرور ترکر
+        const tracker = {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 100,
+            isOnline: true,
+            
+            updatePosition() {
+                this.x = cw / 2;
+                this.y = 80; // بالای صفحه
+            },
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // بدنه سرور
+                ctx.fillStyle = this.isOnline ? '#1e293b' : '#1e1b4b';
+                ctx.strokeStyle = this.isOnline ? '#3b82f6' : '#64748b';
+                ctx.lineWidth = 2;
+                
+                // سایه (گلو) در صورت آنلاین بودن
+                if(this.isOnline) {
+                    ctx.shadowColor = '#3b82f6';
+                    ctx.shadowBlur = 20;
+                }
+                
+                // رسم رک سرور
+                ctx.beginPath();
+                ctx.roundRect(-this.width/2, -this.height/2, this.width, this.height, 8);
+                ctx.fill();
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // جزئیات سرور (چراغ‌ها و اسلات‌ها)
+                for(let i=0; i<3; i++) {
+                    let slotY = -25 + (i * 25);
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(-this.width/2 + 10, slotY, this.width - 20, 15);
+                    
+                    // چراغ چشمک‌زن سرور
+                    if(this.isOnline) {
+                        ctx.fillStyle = (Math.random() > 0.5) ? '#22c55e' : '#3b82f6';
+                        ctx.beginPath();
+                        ctx.arc(-this.width/2 + 18, slotY + 7.5, 3, 0, Math.PI*2);
+                        ctx.fill();
+                    } else {
+                        ctx.fillStyle = '#ef4444'; // چراغ قرمز خاموش
+                        ctx.beginPath();
+                        ctx.arc(-this.width/2 + 18, slotY + 7.5, 3, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                }
+
+                // متن ترکر
+                ctx.fillStyle = this.isOnline ? '#e2e8f0' : '#64748b';
+                ctx.font = 'bold 12px Vazirmatn';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('Tracker', 0, -this.height/2 - 10);
+                
+                ctx.restore();
+            }
+        };
+
+        class Peer {
+            constructor(isSeeder) {
+                this.id = peerIdCounter++;
+                this.isSeeder = isSeeder;
+                this.pieces = isSeeder ? Array.from({length: TOTAL_PIECES}, (_, i) => i) : [];
+                this.connectedPeers = [];
+                
+                // موقعیت و حرکت (Swarm physics)
+                this.radius = 22;
+                this.angle = Math.random() * Math.PI * 2;
+                this.orbitRadius = Math.random() * 50 + Math.min(cw, ch) * 0.3; // شعاع مدار
+                this.orbitSpeed = (Math.random() - 0.5) * 0.002;
+                this.x = cw/2;
+                this.y = ch/2;
+
+                // وضعیت‌های ممکن: CONNECTING_TRACKER, TRACKER_FAILED, P2P
+                this.state = 'CONNECTING_TRACKER'; 
+                this.trackerProgress = 0;
+                
+                // محدودیت‌های P2P
+                this.maxConnections = 4;
+                this.activeDownloads = 0;
+            }
+
+            update() {
+                // حرکت چرخشی نرم دور مرکز Swarm (که زیر ترکر است)
+                this.angle += this.orbitSpeed;
+                const swarmCenterY = tracker.y + 250 + (ch - tracker.y - 250)/2;
+                const targetX = cw/2 + Math.cos(this.angle) * this.orbitRadius;
+                const targetY = swarmCenterY + Math.sin(this.angle) * (this.orbitRadius * 0.7); // مدار بیضی شکل
+
+                // حرکت نرم به سمت هدف
+                this.x += (targetX - this.x) * 0.05;
+                this.y += (targetY - this.y) * 0.05;
+
+                // منطق اتصال به ترکر
+                if (this.state === 'CONNECTING_TRACKER' || this.state === 'TRACKER_FAILED') {
+                    if (tracker.isOnline) {
+                        this.state = 'CONNECTING_TRACKER';
+                        this.trackerProgress += 0.02; // انیمیشن اتصال به ترکر
+                        
+                        if (this.trackerProgress >= 1) {
+                            // دریافت لیست همتایان از ترکر با موفقیت
+                            this.discoverPeers();
+                            this.state = 'P2P';
+                            this.trackerProgress = 0;
+                        }
+                    } else {
+                        // گیر کردن پشت ترکر خاموش
+                        this.state = 'TRACKER_FAILED';
+                        this.trackerProgress = 0;
+                    }
+                } 
+                // منطق P2P بعد از دریافت لیست
+                else if (this.state === 'P2P') {
+                    this.manageP2PDownloads();
+                }
+            }
+
+            discoverPeers() {
+                // یافتن تصادفی چند Peer از شبکه که از قبل P2P هستند یا سیدر هستند
+                // در دنیای واقعی ترکر آی‌پی‌ها را می‌دهد.
+                const potentialPeers = peers.filter(p => p.id !== this.id && p.state === 'P2P');
+                // انتخاب تصادفی
+                potentialPeers.sort(() => 0.5 - Math.random());
+                const toConnect = potentialPeers.slice(0, this.maxConnections);
+                
+                toConnect.forEach(p => {
+                    if(!this.connectedPeers.includes(p)) {
+                        this.connectedPeers.push(p);
+                        // اتصال دوطرفه
+                        if(!p.connectedPeers.includes(this) && p.connectedPeers.length < p.maxConnections) {
+                            p.connectedPeers.push(this);
+                        }
+                    }
+                });
+            }
+
+            manageP2PDownloads() {
+                if (this.isSeeder) return;
+                if (this.activeDownloads >= 2) return; // حداکثر 2 دانلود همزمان برای هر کلاینت
+
+                // پیدا کردن قطعاتی که نیاز دارد
+                let neededPieces = [];
+                for(let i=0; i<TOTAL_PIECES; i++) {
+                    if(!this.pieces.includes(i)) neededPieces.push(i);
+                }
+
+                if (neededPieces.length === 0) {
+                    this.becomeSeeder();
+                    return;
+                }
+
+                // انتخاب یک قطعه تصادفی مورد نیاز
+                const targetPiece = neededPieces[Math.floor(Math.random() * neededPieces.length)];
+
+                // بررسی اینکه آیا کسی از متصل‌شده‌ها این قطعه را دارد؟
+                const providers = this.connectedPeers.filter(p => p.pieces.includes(targetPiece));
+                
+                if (providers.length > 0) {
+                    // انتخاب تصادفی ارائه‌دهنده
+                    const provider = providers[Math.floor(Math.random() * providers.length)];
+                    
+                    // بررسی اینکه آیا در حال حاضر این قطعه را از کسی در حال دانلود نیستیم؟
+                    const alreadyDownloading = packets.some(pkt => pkt.target === this && pkt.pieceIndex === targetPiece);
+                    
+                    if (!alreadyDownloading) {
+                        // ایجاد بسته جدید برای دانلود
+                        packets.push(new Packet(provider, this, targetPiece));
+                        this.activeDownloads++;
+                    }
+                }
+            }
+
+            becomeSeeder() {
+                this.isSeeder = true;
+                updateStats();
+            }
+
+            draw() {
+                // اگر در حال اتصال به ترکر است، رسم خط ارتباطی موقت
+                if (this.state === 'CONNECTING_TRACKER' && this.trackerProgress > 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x + (tracker.x - this.x) * this.trackerProgress, 
+                               this.y + (tracker.y - this.y) * this.trackerProgress);
+                    ctx.strokeStyle = '#f59e0b'; // amber-500
+                    ctx.setLineDash([5, 5]);
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // سایه بر اساس نوع
+                if (this.isSeeder) {
+                    ctx.shadowColor = '#10b981';
+                    ctx.shadowBlur = 15;
+                } else if (this.state === 'P2P') {
+                    ctx.shadowColor = '#3b82f6';
+                    ctx.shadowBlur = 10;
+                } else if (this.state === 'TRACKER_FAILED') {
+                    ctx.shadowColor = '#ef4444';
+                    ctx.shadowBlur = 15;
+                }
+
+                // پس‌زمینه نود
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI*2);
+                ctx.fillStyle = '#1e293b';
+                ctx.fill();
+
+                // حاشیه نود
+                ctx.lineWidth = 3;
+                if (this.state === 'TRACKER_FAILED') ctx.strokeStyle = '#ef4444'; // Red
+                else if (this.state === 'CONNECTING_TRACKER') ctx.strokeStyle = '#f59e0b'; // Amber
+                else if (this.isSeeder) ctx.strokeStyle = '#10b981'; // Green
+                else ctx.strokeStyle = '#3b82f6'; // Blue
+                ctx.stroke();
+                
+                ctx.shadowBlur = 0;
+
+                // رسم قطعات فایل (شبیه نمودار دایره‌ای)
+                if (this.pieces.length > 0) {
+                    const anglePerPiece = (Math.PI * 2) / TOTAL_PIECES;
+                    this.pieces.forEach(pIdx => {
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.arc(0, 0, this.radius - 3, pIdx * anglePerPiece, (pIdx + 1) * anglePerPiece);
+                        ctx.fillStyle = PIECE_COLORS[pIdx];
+                        ctx.fill();
+                    });
+                }
+
+                // مرکز تیره برای دیده شدن متن
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius - 8, 0, Math.PI*2);
+                ctx.fillStyle = '#0f172a';
+                ctx.fill();
+
+                // متن درصد یا علامت هشدار
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                if (this.state === 'TRACKER_FAILED') {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.font = 'bold 16px sans-serif';
+                    ctx.fillText('!', 0, 0);
+                } else {
+                    const percent = Math.floor((this.pieces.length / TOTAL_PIECES) * 100);
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.font = 'bold 10px Vazirmatn';
+                    ctx.fillText(percent + '%', 0, 1);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class Packet {
+            constructor(source, target, pieceIndex) {
+                this.source = source;
+                this.target = target;
+                this.pieceIndex = pieceIndex;
+                this.progress = 0;
+                this.speed = 0.008 + (Math.random() * 0.01); // سرعت انتقال
+            }
+
+            update() {
+                this.progress += this.speed;
+                if (this.progress >= 1) {
+                    // تکمیل انتقال
+                    if (!this.target.pieces.includes(this.pieceIndex)) {
+                        this.target.pieces.push(this.pieceIndex);
+                    }
+                    this.target.activeDownloads--;
+                    return true; // نیاز به حذف دارد
+                }
+                return false;
+            }
+
+            draw() {
+                // عدم نمایش بسته اگر یکی از نودها دیسکانکت شده باشد
+                if (!peers.includes(this.source) || !peers.includes(this.target)) return;
+
+                const currX = this.source.x + (this.target.x - this.source.x) * this.progress;
+                const currY = this.source.y + (this.target.y - this.source.y) * this.progress;
+
+                ctx.beginPath();
+                ctx.arc(currX, currY, 5, 0, Math.PI*2);
+                ctx.fillStyle = PIECE_COLORS[this.pieceIndex];
+                ctx.shadowColor = PIECE_COLORS[this.pieceIndex];
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function drawP2PConnections() {
+            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = 'rgba(71, 85, 105, 0.4)'; // slate-600 with opacity
+
+            // برای جلوگیری از رسم خطوط تکراری، کش متصل‌ها را نگه می‌داریم
+            const drawn = new Set();
+
+            peers.forEach(p1 => {
+                if(p1.state !== 'P2P') return;
+                
+                p1.connectedPeers.forEach(p2 => {
+                    // رسم فقط اگر طرف مقابل هم P2P باشد و در شبکه موجود باشد
+                    if (peers.includes(p2) && p2.state === 'P2P') {
+                        const edgeId = p1.id < p2.id ? `${p1.id}-${p2.id}` : `${p2.id}-${p1.id}`;
+                        if (!drawn.has(edgeId)) {
+                            drawn.add(edgeId);
+                            ctx.beginPath();
+                            ctx.moveTo(p1.x, p1.y);
+                            ctx.lineTo(p2.x, p2.y);
+                            ctx.stroke();
+                        }
+                    }
+                });
+            });
+        }
+
+        function updateStats() {
+            const seedersCount = peers.filter(p => p.isSeeder).length;
+            const leechersCount = peers.length - seedersCount;
+            document.getElementById('statSeeders').innerText = seedersCount;
+            document.getElementById('statLeechers').innerText = leechersCount;
+        }
+
+        function resize() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            cw = canvas.width;
+            ch = canvas.height;
+            tracker.updatePosition();
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, cw, ch);
+
+            // رسم ترکر
+            tracker.draw();
+
+            // رسم خطوط P2P
+            drawP2PConnections();
+
+            // آپدیت و رسم Peer ها
+            peers.forEach(peer => {
+                peer.update();
+                peer.draw();
+            });
+
+            // آپدیت و رسم Packet ها (دیتا)
+            for (let i = packets.length - 1; i >= 0; i--) {
+                const pkt = packets[i];
+                // اگر فرستنده یا گیرنده از شبکه خارج شده بود، انتقال متوقف می‌شود
+                if (!peers.includes(pkt.source) || !peers.includes(pkt.target)) {
+                    if (peers.includes(pkt.target)) pkt.target.activeDownloads--;
+                    packets.splice(i, 1);
+                    continue;
+                }
+
+                if (pkt.update()) {
+                    packets.splice(i, 1);
+                } else {
+                    pkt.draw();
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+
+        document.getElementById('addLeecherBtn').addEventListener('click', () => {
+            peers.push(new Peer(false));
+            updateStats();
+        });
+
+        document.getElementById('addSeederBtn').addEventListener('click', () => {
+            peers.push(new Peer(true));
+            updateStats();
+        });
+
+        document.getElementById('toggleTrackerBtn').addEventListener('click', () => {
+            tracker.isOnline = !tracker.isOnline;
+            
+            // آپدیت UI وضعیت
+            const dot = document.getElementById('trackerStatusDot');
+            const txt = document.getElementById('trackerStatusText');
+            
+            if(tracker.isOnline) {
+                dot.className = "w-4 h-4 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse";
+                txt.className = "text-xs text-emerald-400";
+                txt.innerText = "آنلاین و در حال کار";
+            } else {
+                dot.className = "w-4 h-4 rounded-full bg-rose-600 shadow-[0_0_10px_#e11d48]";
+                txt.className = "text-xs text-rose-400 font-bold";
+                txt.innerText = "آفلاین (لیچرهای جدید معلق می‌مانند)";
+            }
+        });
+
+        document.getElementById('removePeerBtn').addEventListener('click', () => {
+            if (peers.length === 0) return;
+            // انتخاب یک کاربر تصادفی
+            const indexToRemove = Math.floor(Math.random() * peers.length);
+            const removedPeer = peers[indexToRemove];
+            
+            // حذف از شبکه
+            peers.splice(indexToRemove, 1);
+            
+            // حذف این کاربر از لیست اتصالات سایرین
+            peers.forEach(p => {
+                p.connectedPeers = p.connectedPeers.filter(connected => connected.id !== removedPeer.id);
+            });
+            
+            updateStats();
+        });
+
+        // راه‌اندازی اولیه شبکه
+        function init() {
+            resize();
+            // اضافه کردن ۱ سیدر و ۳ لیچر اولیه برای شروع زیبا
+            peers.push(new Peer(true));
+            setTimeout(() => peers.push(new Peer(false)), 500);
+            setTimeout(() => peers.push(new Peer(false)), 1500);
+            setTimeout(() => peers.push(new Peer(false)), 2500);
+            
+            updateStats();
+            animate();
+        }
+
+        // اجرای شبیه‌ساز بعد از لود کامل صفحه
+        window.onload = init;
+
+    </script>
+</body>
+</html>
